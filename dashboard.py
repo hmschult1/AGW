@@ -14,7 +14,7 @@ server = app.server  # For Render deployment
 
 # Layout
 app.layout = html.Div([
-    html.H1("Click Rate by Age Group and Subject Line", style={'textAlign': 'center'}),
+    html.H1("AGW 2025 Data", style={'textAlign': 'center'}),
     
     html.Label("Select Sport:"),
     dcc.Dropdown(
