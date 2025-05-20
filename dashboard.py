@@ -4,7 +4,7 @@ from dash import dcc, html
 import plotly.express as px
 
 # Load and prepare the data
-df = pd.read_csv("athletic giving week report.csv")
+df = pd.read_csv("data/athletic giving week report.csv")
 df.columns = df.columns.str.strip()
 df["Click Rate (%)"] = pd.to_numeric(df["Click Rate (%)"], errors='coerce')
 
