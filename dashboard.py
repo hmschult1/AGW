@@ -7,7 +7,7 @@ import plotly.graph_objects as go
 
 # === Load data ===
 click_df = pd.read_csv("data/athletic giving week report.csv")
-giving_df = pd.read_csv("laf_email data 4.19.2025-5.2.2025.CSV")
+giving_df = pd.read_csv("data/laf_email data 4.19.2025-5.2.2025.CSV")
 
 # === Clean headers ===
 click_df.columns = click_df.columns.str.strip()
@@ -54,7 +54,7 @@ mapped_giving = giving_df.merge(
 
 # === Prepare click data ===
 click_df['Click Rate (%)'] = pd.to_numeric(click_df['Click Rate (%)'], errors='coerce')
-click_df = click_df.dropna(subset=['Click Rate (%)'])
+click_df = click_df[(click_df['Click Rate (%)'].notna()) & (click_df['Click Rate (%)'] >= 0)]
 
 # === Merge giving and click rate data ===
 combined_df = mapped_giving.merge(
@@ -108,7 +108,7 @@ app.layout = html.Div([
         ],
         style_table={'overflowX': 'auto'},
         style_cell={'padding': '5px', 'textAlign': 'center'},
-        style_header={'backgroundColor': 'lightgrey', 'fontWeight': 'bold'}
+        style_header={'fontWeight': 'bold'}
     )
 ])
 
