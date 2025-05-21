@@ -74,21 +74,59 @@ server = app.server
 app.layout = html.Div([
     html.H1("Click Rate vs Giving by Sport and Age Group", style={'textAlign': 'center'}),
 
+    html.Label("Select Sport:"),
     dcc.Dropdown(
         id='sport-dropdown',
         options=[{"label": sport, "value": sport} for sport in grouped_df['Sport'].unique()],
         value=grouped_df['Sport'].unique()[0]
     ),
 
-    dcc.Graph(id='correlation-graph')
+    html.Label("Select Subject Line:"),
+    dcc.Dropdown(
+        id='subject-dropdown'
+    ),
+
+    dcc.Graph(id='correlation-graph'),
+
+    html.Br(),
+    html.H3("Data Table"),
+    dash_table.DataTable(
+        id='correlation-table',
+        columns=[
+            {"name": col, "id": col} for col in ['Sport', 'Age Group', 'Subject Line', 'Click Rate (%)', 'Lifetime Giving']
+        ],
+        style_table={'overflowX': 'auto'},
+        style_cell={'padding': '5px', 'textAlign': 'center'},
+        style_header={'backgroundColor': 'lightgrey', 'fontWeight': 'bold'}
+    )
 ])
 
 @app.callback(
-    dash.dependencies.Output('correlation-graph', 'figure'),
-    [dash.dependencies.Input('sport-dropdown', 'value')]
+    dash.dependencies.Output('subject-dropdown', 'options'),
+    dash.dependencies.Output('subject-dropdown', 'value'),
+    dash.dependencies.Input('sport-dropdown', 'value')
 )
-def update_graph(selected_sport):
+def update_subject_options(selected_sport):
     filtered = grouped_df[grouped_df['Sport'] == selected_sport]
+    options = [{'label': s, 'value': s} for s in filtered['Subject Line'].unique()]
+    value = options[0]['value'] if options else None
+    return options, value
+
+@app.callback(
+    [
+        dash.dependencies.Output('correlation-graph', 'figure'),
+        dash.dependencies.Output('correlation-table', 'data')
+    ],
+    [
+        dash.dependencies.Input('sport-dropdown', 'value'),
+        dash.dependencies.Input('subject-dropdown', 'value')
+    ]
+)
+def update_graph_and_table(selected_sport, selected_subject):
+    filtered = grouped_df[
+        (grouped_df['Sport'] == selected_sport) &
+        (grouped_df['Subject Line'] == selected_subject)
+    ]
     fig = px.scatter(
         filtered,
         x='Click Rate (%)',
@@ -96,9 +134,9 @@ def update_graph(selected_sport):
         color='Age Group',
         size='Lifetime Giving',
         hover_data=['Subject Line'],
-        title=f"Correlation Between Click Rate and Giving ({selected_sport})"
+        title=f"Click Rate vs Giving for '{selected_subject}' ({selected_sport})"
     )
-    return fig
+    return fig, filtered.to_dict('records')
 
 if __name__ == '__main__':
     app.run_server(debug=True)
