@@ -3,6 +3,7 @@ import dash
 from dash import dcc, html
 import dash_table
 import plotly.express as px
+import plotly.graph_objects as go
 
 # === Load data ===
 click_df = pd.read_csv("data/athletic giving week report.csv")
@@ -61,11 +62,17 @@ combined_df = mapped_giving.merge(
     on=['Subject Line', 'Age Group'], how='inner'
 )
 
+# === Add count of givers and clickers ===
+combined_df['Giver'] = combined_df['Lifetime Giving'] > 0
+combined_df['Clicked'] = combined_df['Click Rate (%)'] > 0
+
 # === Group for plotting ===
 grouped_df = combined_df.groupby(['Sport', 'Age Group', 'Subject Line'], observed=True).agg({
     'Click Rate (%)': 'mean',
-    'Lifetime Giving': 'sum'
-}).reset_index()
+    'Lifetime Giving': 'sum',
+    'Giver': 'sum',
+    'Clicked': 'sum'
+}).reset_index().rename(columns={'Giver': 'Number of Givers', 'Clicked': 'Number of Clickers'})
 
 # === Dash App ===
 app = dash.Dash(__name__)
@@ -93,7 +100,11 @@ app.layout = html.Div([
     dash_table.DataTable(
         id='correlation-table',
         columns=[
-            {"name": col, "id": col} for col in ['Sport', 'Age Group', 'Subject Line', 'Click Rate (%)', 'Lifetime Giving']
+            {"name": col, "id": col} for col in [
+                'Sport', 'Age Group', 'Subject Line',
+                'Click Rate (%)', 'Lifetime Giving',
+                'Number of Givers', 'Number of Clickers'
+            ]
         ],
         style_table={'overflowX': 'auto'},
         style_cell={'padding': '5px', 'textAlign': 'center'},
@@ -127,15 +138,56 @@ def update_graph_and_table(selected_sport, selected_subject):
         (grouped_df['Sport'] == selected_sport) &
         (grouped_df['Subject Line'] == selected_subject)
     ]
-    fig = px.scatter(
-        filtered,
-        x='Click Rate (%)',
-        y='Lifetime Giving',
-        color='Age Group',
-        size='Lifetime Giving',
-        hover_data=['Subject Line'],
-        title=f"Click Rate vs Giving for '{selected_subject}' ({selected_sport})"
+
+    fig = go.Figure()
+
+    # Scatter points
+    fig.add_trace(go.Scatter(
+        x=filtered['Click Rate (%)'],
+        y=filtered['Lifetime Giving'],
+        mode='markers',
+        marker=dict(
+            size=filtered['Lifetime Giving'],
+            color=filtered['Click Rate (%)'],
+            showscale=True
+        ),
+        text=filtered['Age Group'],
+        name='Giving vs Click Rate'
+    ))
+
+    # Bar overlays for number of givers
+    fig.add_trace(go.Bar(
+        x=filtered['Click Rate (%)'],
+        y=filtered['Number of Givers'],
+        name='Number of Givers',
+        yaxis='y2',
+        opacity=0.4,
+        marker_color='green'
+    ))
+
+    # Bar overlays for number of clickers
+    fig.add_trace(go.Bar(
+        x=filtered['Click Rate (%)'],
+        y=filtered['Number of Clickers'],
+        name='Number of Clickers',
+        yaxis='y2',
+        opacity=0.4,
+        marker_color='orange'
+    ))
+
+    fig.update_layout(
+        title=f"Click Rate vs Giving for '{selected_subject}' ({selected_sport})",
+        xaxis_title='Click Rate (%)',
+        yaxis=dict(title='Lifetime Giving'),
+        yaxis2=dict(
+            title='Count of Givers/Clickers',
+            overlaying='y',
+            side='right',
+            showgrid=False
+        ),
+        legend=dict(x=0.01, y=0.99)
     )
+
     return fig, filtered.to_dict('records')
 
 if __name__ == '__main__':
