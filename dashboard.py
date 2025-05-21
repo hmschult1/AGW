@@ -5,7 +5,7 @@ import dash_table
 import plotly.express as px
 
 # --- Load and preprocess Giving Data ---
-giving_df = pd.read_csv("data/laf_email data 4.19.2025-5.2.2025.CSV")
+giving_df = pd.read_csv("laf_email data 4.19.2025-5.2.2025.CSV")
 giving_df['Lifetime Giving'] = giving_df['Lifetime Giving'].replace('[\$,]', '', regex=True).astype(float)
 giving_df['Appeal Date'] = giving_df['Assigned Appeal Description'].str.extract(r'(\d{8})$')
 giving_df['Appeal Date'] = pd.to_datetime(giving_df['Appeal Date'], format='%Y%m%d', errors='coerce')
