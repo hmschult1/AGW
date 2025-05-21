@@ -4,74 +4,101 @@ from dash import dcc, html
 import dash_table
 import plotly.express as px
 
-# === Load and preprocess giving data ===
-giving_df = pd.read_csv("laf_email data 4.19.2025-5.2.2025.CSV")
-giving_df['Lifetime Giving'] = giving_df['Lifetime Giving'].replace('[\$,]', '', regex=True).astype(float)
-giving_df['Assigned Appeal ID'] = giving_df['Assigned Appeal ID'].astype(str).str.strip()
-giving_df['Appeal Date'] = giving_df['Assigned Appeal Description'].str.extract(r'(\d{8})$')
-giving_df['Appeal Date'] = pd.to_datetime(giving_df['Appeal Date'], format='%Y%m%d', errors='coerce')
-giving_df = giving_df.dropna(subset=['Age', 'Lifetime Giving', 'Appeal Date'])
-giving_df = giving_df[(giving_df['Appeal Date'] >= "2025-04-19") & (giving_df['Appeal Date'] <= "2025-05-02")]
-
-# Apply age groups based on click data bins
-age_bins = [0, 19, 31, 41, 51, 61, 71, 150]
-age_labels = ['0-18', '19-30', '31-40', '41-50', '51-60', '61-70', '70+']
-giving_df['Age Group'] = pd.cut(giving_df['Age'], bins=age_bins, labels=age_labels, right=False)
-
-# === Load and preprocess click data ===
+# === Load data ===
 click_df = pd.read_csv("data/athletic giving week report.csv")
+giving_df = pd.read_csv("laf_email data 4.19.2025-5.2.2025.CSV")
+
+# === Clean headers ===
 click_df.columns = click_df.columns.str.strip()
-click_df['Assigned Appeal ID'] = click_df['Assigned Appeal ID'].astype(str).str.strip()
+giving_df.columns = giving_df.columns.str.strip()
 
-# === Merge datasets on Assigned Appeal ID ===
-combined_df = pd.merge(giving_df, click_df, on='Assigned Appeal ID', how='inner')
-combined_df = combined_df.dropna(subset=['Sport', 'Age Group', 'Subject Line'])
+# === Clean and normalize for mapping ===
+click_df['Subject Line Clean'] = click_df['Subject Line'].str.lower().str.replace(r'[^a-z0-9 ]', '', regex=True)
+giving_df['Appeal Description Clean'] = giving_df['Assigned Appeal Description'].str.lower().str.replace(r'[^a-z0-9 ]', '', regex=True)
 
-# === Group by Sport, Age Group, and Subject Line ===
-grouped_df = (
-    combined_df.groupby(['Sport', 'Age Group', 'Subject Line'], observed=True)['Lifetime Giving']
-    .sum()
-    .reset_index()
+# === Match subject lines to giving data by substring ===
+def match_subject(subject, appeal_list):
+    matches = [appeal for appeal in appeal_list if subject in appeal]
+    return matches[0] if matches else None
+
+appeal_descriptions = giving_df['Appeal Description Clean'].unique().tolist()
+click_df['Matched Appeal Description'] = click_df['Subject Line Clean'].apply(lambda x: match_subject(x, appeal_descriptions))
+
+# === Join matched descriptions to get Appeal ID ===
+appeals_df = giving_df[['Assigned Appeal Description', 'Assigned Appeal ID', 'Appeal Description Clean']]
+matches_df = click_df.merge(
+    appeals_df,
+    left_on='Matched Appeal Description',
+    right_on='Appeal Description Clean',
+    how='left'
 )
+matches_df = matches_df.drop_duplicates(subset=['Sport', 'Subject Line'])
+
+# === Prepare giving data ===
+giving_df['Assigned Appeal ID'] = giving_df['Assigned Appeal ID'].astype(str).str.strip()
+giving_df['Lifetime Giving'] = giving_df['Lifetime Giving'].replace('[\$,]', '', regex=True).astype(float)
+giving_df['Age'] = pd.to_numeric(giving_df['Age'], errors='coerce')
+giving_df = giving_df.dropna(subset=['Age'])
+giving_df['Age Group'] = pd.cut(
+    giving_df['Age'],
+    bins=[0, 18, 30, 40, 50, 60, 70, 150],
+    labels=['0-18', '19-30', '31-40', '41-50', '51-60', '61-70', '70+']
+)
+
+# === Merge giving with mapped campaign data ===
+mapped_giving = giving_df.merge(
+    matches_df[['Subject Line', 'Sport', 'Assigned Appeal ID']],
+    on='Assigned Appeal ID', how='inner'
+)
+
+# === Prepare click data ===
+click_df['Click Rate (%)'] = pd.to_numeric(click_df['Click Rate (%)'], errors='coerce')
+click_df = click_df.dropna(subset=['Click Rate (%)'])
+
+# === Merge giving and click rate data ===
+combined_df = mapped_giving.merge(
+    click_df[['Subject Line', 'Age Group', 'Click Rate (%)']],
+    on=['Subject Line', 'Age Group'], how='inner'
+)
+
+# === Group for plotting ===
+grouped_df = combined_df.groupby(['Sport', 'Age Group', 'Subject Line'], observed=True).agg({
+    'Click Rate (%)': 'mean',
+    'Lifetime Giving': 'sum'
+}).reset_index()
 
 # === Dash App ===
 app = dash.Dash(__name__)
 server = app.server
 
 app.layout = html.Div([
-    html.H1("Giving by Sport, Age Group, and Subject Line", style={'textAlign': 'center'}),
-    html.Br(),
+    html.H1("Click Rate vs Giving by Sport and Age Group", style={'textAlign': 'center'}),
 
-    dash_table.DataTable(
-        id='sport-age-subject-table',
-        columns=[
-            {"name": "Sport", "id": "Sport"},
-            {"name": "Age Group", "id": "Age Group"},
-            {"name": "Subject Line", "id": "Subject Line"},
-            {"name": "Total Giving", "id": "Lifetime Giving"}
-        ],
-        data=grouped_df.to_dict('records'),
-        style_table={'overflowX': 'auto'},
-        style_cell={'padding': '10px', 'textAlign': 'center'},
-        style_header={'backgroundColor': 'lightgrey', 'fontWeight': 'bold'}
+    dcc.Dropdown(
+        id='sport-dropdown',
+        options=[{"label": sport, "value": sport} for sport in grouped_df['Sport'].unique()],
+        value=grouped_df['Sport'].unique()[0]
     ),
 
-    html.Br(),
-
-    dcc.Graph(
-        id='sport-age-subject-bar',
-        figure=px.bar(
-            grouped_df,
-            x='Age Group',
-            y='Lifetime Giving',
-            color='Subject Line',
-            facet_col='Sport',
-            barmode='group',
-            title='Total Giving by Sport, Age Group, and Subject Line',
-            labels={"Lifetime Giving": "Total Giving ($)"}
-        )
-    )
+    dcc.Graph(id='correlation-graph')
 ])
+
+@app.callback(
+    dash.dependencies.Output('correlation-graph', 'figure'),
+    [dash.dependencies.Input('sport-dropdown', 'value')]
+)
+def update_graph(selected_sport):
+    filtered = grouped_df[grouped_df['Sport'] == selected_sport]
+    fig = px.scatter(
+        filtered,
+        x='Click Rate (%)',
+        y='Lifetime Giving',
+        color='Age Group',
+        size='Lifetime Giving',
+        hover_data=['Subject Line'],
+        title=f"Correlation Between Click Rate and Giving ({selected_sport})"
+    )
+    return fig
 
 if __name__ == '__main__':
     app.run_server(debug=True)
