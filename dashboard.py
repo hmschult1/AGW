@@ -7,7 +7,7 @@ import plotly.graph_objects as go
 
 # === Load data ===
 click_df = pd.read_csv("data/athletic giving week report.csv")
-giving_df = pd.read_csv("data/laf_email data 4.19.2025-5.2.2025.CSV")
+giving_df = pd.read_csv("laf_email data 4.19.2025-5.2.2025.CSV")
 
 # === Clean headers ===
 click_df.columns = click_df.columns.str.strip()
