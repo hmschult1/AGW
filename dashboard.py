@@ -67,10 +67,15 @@ combined_df['Clicked'] = combined_df['Click Rate (%)'] > 0
 # === Group for table ===
 grouped_df = combined_df.groupby(['Sport', 'Age Group', 'Subject Line'], observed=True).agg({
     'Click Rate (%)': 'mean',
-    'Lifetime Giving': 'sum',
     'Giver': 'sum',
     'Clicked': 'sum'
 }).reset_index().rename(columns={'Giver': 'Number of Givers', 'Clicked': 'Number of Clickers'})
+
+# === Compute conversion rate ===
+grouped_df['Click-to-Giver Conversion Rate (%)'] = grouped_df.apply(
+    lambda row: (row['Number of Givers'] / row['Number of Clickers'] * 100) if row['Number of Clickers'] > 0 else 0,
+    axis=1
+)
 
 # === Dash App ===
 app = dash.Dash(__name__)
@@ -96,8 +101,8 @@ app.layout = html.Div([
         columns=[
             {"name": col, "id": col} for col in [
                 'Sport', 'Age Group', 'Subject Line',
-                'Click Rate (%)', 'Lifetime Giving',
-                'Number of Givers', 'Number of Clickers'
+                'Click Rate (%)', 'Number of Givers', 'Number of Clickers',
+                'Click-to-Giver Conversion Rate (%)'
             ]
         ],
         style_table={'overflowX': 'auto'},
