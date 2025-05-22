@@ -86,7 +86,7 @@ app = dash.Dash(__name__)
 server = app.server
 
 app.layout = html.Div([
-    html.H1("Click Rate and Giving by Sport and Age Group", style={'textAlign': 'center'}),
+    html.H1("Athletic Giving Week 2025", style={'textAlign': 'center'}),
 
     html.Label("Select Sport:"),
     dcc.Dropdown(
