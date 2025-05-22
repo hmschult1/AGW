@@ -72,7 +72,7 @@ grouped_df = combined_df.groupby(['Sport', 'Age Group', 'Subject Line'], observe
 }).reset_index().rename(columns={'Giver': 'Number of Givers', 'Clicked': 'Number of Clickers'})
 
 # === Compute conversion rate ===
-grouped_df['Click-to-Giver Conversion Rate (%)'] = grouped_df.apply(
+grouped_df['Click-to-Give Conversion Rate (%)'] = grouped_df.apply(
     lambda row: (row['Number of Givers'] / row['Number of Clickers'] * 100) if row['Number of Clickers'] > 0 else 0,
     axis=1
 )
@@ -113,7 +113,7 @@ app.layout = html.Div([
         columns=[{"name": col, "id": col} for col in [
             'Sport', 'Age Group', 'Subject Line',
             'Click Rate (%)', 'Number of Givers', 'Number of Clickers',
-            'Click-to-Giver Conversion Rate (%)'
+            'Click-to-Give Conversion Rate (%)'
         ]],
         style_table={'overflowX': 'auto'},
         style_cell={'padding': '5px', 'textAlign': 'center'},
@@ -190,7 +190,7 @@ def update_conversion_rate_graph(selected_sport, selected_subject):
     return {
         'data': [{
             'x': filtered['Age Group'],
-            'y': filtered['Click-to-Giver Conversion Rate (%)'],
+            'y': filtered['Click-to-Give Conversion Rate (%)'],
             'type': 'bar',
             'name': selected_subject,
             'marker': {'color': 'green'}
@@ -198,7 +198,7 @@ def update_conversion_rate_graph(selected_sport, selected_subject):
         'layout': {
             'title': f"Conversion Rate by Age Group for {selected_sport}",
             'xaxis': {'title': 'Age Group'},
-            'yaxis': {'title': 'Click-to-Giver Conversion Rate (%)'},
+            'yaxis': {'title': 'Click-to-Give Conversion Rate (%)'},
             'margin': {'l': 60, 'r': 20, 't': 40, 'b': 60}
         }
     }
