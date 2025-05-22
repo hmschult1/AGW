@@ -103,6 +103,10 @@ app.layout = html.Div([
     dcc.Graph(id='click-rate-graph'),
 
     html.Br(),
+    html.H3("Conversion Rate by Age Group"),
+    dcc.Graph(id='conversion-rate-graph'),
+
+    html.Br(),
     html.H3("Data Table"),
     dash_table.DataTable(
         id='correlation-table',
@@ -166,6 +170,35 @@ def update_click_rate_graph(selected_sport, selected_subject):
             'title': f"Click Rate by Age Group for {selected_sport}",
             'xaxis': {'title': 'Age Group'},
             'yaxis': {'title': 'Click Rate (%)'},
+            'margin': {'l': 60, 'r': 20, 't': 40, 'b': 60}
+        }
+    }
+
+@app.callback(
+    dash.dependencies.Output('conversion-rate-graph', 'figure'),
+    [
+        dash.dependencies.Input('sport-dropdown', 'value'),
+        dash.dependencies.Input('subject-dropdown', 'value')
+    ]
+)
+def update_conversion_rate_graph(selected_sport, selected_subject):
+    filtered = grouped_df[
+        (grouped_df['Sport'] == selected_sport) &
+        (grouped_df['Subject Line'] == selected_subject)
+    ].sort_values('Age Group')
+
+    return {
+        'data': [{
+            'x': filtered['Age Group'],
+            'y': filtered['Click-to-Giver Conversion Rate (%)'],
+            'type': 'bar',
+            'name': selected_subject,
+            'marker': {'color': 'green'}
+        }],
+        'layout': {
+            'title': f"Conversion Rate by Age Group for {selected_sport}",
+            'xaxis': {'title': 'Age Group'},
+            'yaxis': {'title': 'Click-to-Giver Conversion Rate (%)'},
             'margin': {'l': 60, 'r': 20, 't': 40, 'b': 60}
         }
     }
